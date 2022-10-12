@@ -97,6 +97,11 @@ impl Socket {
         Self { fd }
     }
 
+    pub(crate) fn from_std_tcp(socket: std::net::TcpStream) -> Socket {
+        let fd = SharedFd::new(socket.into_raw_fd());
+        Self { fd }
+    }
+
     fn bind_internal(
         socket_addr: socket2::SockAddr,
         domain: socket2::Domain,

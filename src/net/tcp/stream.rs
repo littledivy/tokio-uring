@@ -153,6 +153,10 @@ impl TcpStream {
         // TODO same method for unix stream for consistency.
         self.inner.shutdown(how)
     }
+
+    pub fn from_std(std_stream: std::net::TcpStream) -> Self {
+        Self { inner: Socket::from_std_tcp(std_stream) }
+    }
 }
 
 impl AsRawFd for TcpStream {

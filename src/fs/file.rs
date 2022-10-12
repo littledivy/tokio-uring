@@ -116,6 +116,10 @@ impl File {
             .await
     }
 
+    pub fn from_std(file: std::fs::File) -> File {
+        File::from_shared_fd(SharedFd::new(file.as_raw_fd()))
+    }
+
     pub(crate) fn from_shared_fd(fd: SharedFd) -> File {
         File { fd }
     }
@@ -171,6 +175,45 @@ impl File {
         op.read().await
     }
 
+    pub async fn write_all_at<T: IoBuf>(&self, mut buf: T, pos: u64) -> crate::BufResult<(), T> {
+        let buf_len = buf.bytes_init();
+
+        if pos.checked_add(buf_len as u64).is_none() {
+            return (
+                Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "buffer too large for file",
+                )),
+                buf,
+            );
+        }
+
+        let mut bytes_written = 0;
+        while bytes_written < buf_len {
+            let (res, slice) = self
+                .write_at(buf.slice(bytes_written..), pos + bytes_written as u64)
+                .await;
+            buf = slice.into_inner();
+            match res {
+                Ok(0) => {
+                    return (
+                        Err(io::Error::new(
+                            io::ErrorKind::WriteZero,
+                            "failed to write whole buffer",
+                        )),
+                        buf,
+                    )
+                }
+                Ok(n) => {
+                    bytes_written += n;
+                }
+                Err(ref e) if e.kind() == io::ErrorKind::Interrupted => {}
+                Err(e) => return (Err(e), buf),
+            };
+        }
+
+        (Ok(()), buf)
+    }
     /// Read some bytes at the specified offset from the file into the specified
     /// array of buffers, returning how many bytes were read.
     ///

@@ -21,7 +21,7 @@ fn main() {
 
     tokio_uring::start(async {
         // Open the file without blocking
-        let file = File::open(path).await.unwrap();
+        let file = File::create(path).await.unwrap();
         let mut buf = vec![0; 16 * 1_024];
 
         // Track the current position in the file;
@@ -29,7 +29,7 @@ fn main() {
 
         loop {
             // Read a chunk
-            let (res, b) = file.read_at(buf, pos).await;
+            let (res, b) = file.write_at(buf, pos).await;
             let n = res.unwrap();
 
             if n == 0 {
